@@ -56,10 +56,10 @@ app.get('/api/persons/:id', (request, response) => {
   })
 // Poista henkilö id:n perusteella
 app.delete('/api/persons/:id', (request, response) => {
-const id = Number(request.params.id)
-persons = persons.filter(person => person.id !== id)
+    const id = Number(request.params.id)
+    persons = persons.filter(person => person.id !== id)
 
-response.status(204).end()
+    response.status(204).end()
 })
 
 const generateId = () => {
@@ -75,15 +75,21 @@ app.post('/api/persons', (request, response) => {
 
   if (!body.name) {
     return response.status(400).json({ 
-      error: 'Name missing' 
+      error: 'Nimi puuttuu' 
     })
   }
 
   if (!body.number) {
     return response.status(400).json({ 
-      error: 'Number missing' 
+      error: 'Numero puuttuu' 
     })
   }  
+
+  if (persons.some(person => person.name === body.name)) {
+    return response.status(400).json({
+        error: 'Nimi löytyy jo listalta'
+    })
+  }
 
   const person = {
     id: generateId(),
