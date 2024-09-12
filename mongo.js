@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+require('dotenv').config();
 if (process.argv.length < 3) {
   console.log('Please provide the password as an argument');
   process.exit(1);
@@ -7,6 +7,9 @@ if (process.argv.length < 3) {
 
 const password = process.argv[2];
 const url = `mongodb+srv://nadinahakkarainen:${password}@fullstack3cluster.xhwqr.mongodb.net/phonebook?retryWrites=true&w=majority&appName=fullstack3cluster`;
+
+mongoose.set('strictQuery',false)
+
 mongoose.connect(url);
 
 const personSchema = new mongoose.Schema({
