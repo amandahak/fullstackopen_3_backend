@@ -22,45 +22,53 @@ app.get('/', (request, response) => {
   response.send('<h1>Puhelinluettelo</h1>')
 })
 
-app.get('/info', (request, response) => {
-  Person.countDocuments({}).then(count => {
-    const text = `Puhelinluettelossa on tietoa ${count} kontaktista`
-    const date = new Date().toString()
-    response.send(
-      `<p>${text}<br><br>${date}</p>`
-    )
-  })
+app.get('/info', (request, response, next) => {
+  Person.countDocuments({})
+    .then(count => {
+      const text = `Puhelinluettelossa on tietoa ${count} kontaktista`
+      const date = new Date().toString()
+      response.send(
+        `<p>${text}<br><br>${date}</p>`
+      )
+    })
+    .catch(error => next(error))
 })
 
-app.get('/api/persons', (request, response) => {
+app.get('/api/persons', (request, response, next) => {
   Person.find({})
     .then(persons => {
       response.json(persons)
     })
     .catch(error => {
       console.error('Error fetching persons:', error.message)
-      response.status(500).send('Error fetching persons')
+      next(error)
     })
 })
 
 // Hae henkilö id:n perusteella
-app.get('/api/persons/:id', (request, response) => {
+app.get('/api/persons/:id', (request, response, next) => {
   Person.findById(request.params.id).then(person => {
     if (person) {
       response.json(person)
     } else {
       response.status(404).json({ error: 'Person not found' })
     }
-  })
+  }).catch(error => next(error))
 })
 
 // Poista henkilö id:n perusteella
-app.delete('/api/persons/:id', (request, response) => {
-  Person.findByIdAndRemove(request.params.id).then(() => {
-    response.status(204).end()
-  })
+app.delete('/api/persons/:id', (request, response, next) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then(result => {
+      if (result) {
+        response.status(204).end()
+      } else {
+        response.status(404).json({ error: 'Person not found' })
+      }
+    })
+    .catch(error => next(error))
 })
-
+/*
 const generateId = () => {
   let newId
   do {
@@ -68,27 +76,27 @@ const generateId = () => {
   } while (persons.some(person => person.id === newId))
   return newId
 }
+*/
 
-app.post('/api/persons', (request, response) => {
+//lisää tai päivitä henkilö
+// Lisää tai päivitä henkilö
+app.post('/api/persons', (request, response, next) => {
   const body = request.body
 
-  if (!body.name) {
-    return response.status(400).json({ 
-      error: 'Nimi puuttuu' 
+  if (!body.name || !body.number) {
+    return response.status(400).json({
+      error: 'name or number missing'
     })
   }
 
-  if (!body.number) {
-    return response.status(400).json({ 
-      error: 'Numero puuttuu' 
-    })
-  }  
-
   Person.findOne({ name: body.name }).then(existingPerson => {
     if (existingPerson) {
-      return response.status(400).json({
-        error: 'Nimi löytyy jo listalta'
-      })
+      return Person.findByIdAndUpdate(
+        existingPerson._id,
+        { number: body.number },
+        { new: true, runValidators: true }
+      ).then(updatedPerson => response.json(updatedPerson))
+        .catch(error => next(error))
     }
 
     const person = new Person({
@@ -98,9 +106,25 @@ app.post('/api/persons', (request, response) => {
 
     person.save().then(savedPerson => {
       response.json(savedPerson)
-    })
-  })
+    }).catch(error => next(error))
+  }).catch(error => next(error))
 })
+
+// Virheiden käsittelymiddleware
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).send({ error: error.message })
+  }
+
+  next(error)
+}
+
+app.use(errorHandler)
+
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {
