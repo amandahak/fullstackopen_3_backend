@@ -22,7 +22,7 @@ app.get('/', (request, response) => {
   response.send('<h1>Puhelinluettelo</h1>')
 })
 
-app.get('/info', (request, response, next) => {
+app.get('/info', (request, response) => {
   Person.countDocuments({})
     .then(count => {
       const text = `Puhelinluettelossa on tietoa ${count} kontaktista`
@@ -31,7 +31,10 @@ app.get('/info', (request, response, next) => {
         `<p>${text}<br><br>${date}</p>`
       )
     })
-    .catch(error => next(error))
+    .catch(error => {
+      console.error('Error fetching count:', error.message)
+      response.status(500).send('Error fetching count')
+    })
 })
 
 app.get('/api/persons', (request, response, next) => {
@@ -47,13 +50,15 @@ app.get('/api/persons', (request, response, next) => {
 
 // Hae henkilö id:n perusteella
 app.get('/api/persons/:id', (request, response, next) => {
-  Person.findById(request.params.id).then(person => {
-    if (person) {
-      response.json(person)
-    } else {
-      response.status(404).json({ error: 'Person not found' })
-    }
-  }).catch(error => next(error))
+  Person.findById(request.params.id)
+    .then(person => {
+      if (person) {
+        response.json(person)
+      } else {
+        response.status(404).json({ error: 'Person not found' })
+      }
+    })
+    .catch(error => next(error))
 })
 
 // Poista henkilö id:n perusteella
